@@ -1,0 +1,28 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #f4f6f8; color: #1c2430; }
+.app { max-width: 960px; margin: 0 auto; padding: 12px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+h1 { font-size: 1.3rem; margin: 8px 0; }
+nav { display: flex; gap: 6px; }
+button { padding: 8px 12px; border: 1px solid #c5ccd6; background: #fff; border-radius: 8px; cursor: pointer; text-transform: capitalize; }
+button.active, button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+button.danger { color: #b91c1c; border-color: #f0b4b4; }
+button.link { border: 0; background: none; color: #555; margin-top: 8px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+input, select { padding: 8px; border: 1px solid #c5ccd6; border-radius: 8px; font-size: 1rem; background: #fff; }
+.toolbar input { flex: 1 1 160px; }
+.tablewrap { overflow-x: auto; background: #fff; border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; min-width: 560px; }
+th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eef0f3; }
+th { background: #f0f3f7; font-size: .85rem; }
+.actions { display: flex; gap: 4px; }
+.bad { color: #b91c1c; font-weight: 600; }
+.empty { text-align: center; color: #888; }
+.meta { font-size: .8rem; color: #667; margin: 4px 0; }
+.toast { position: fixed; left: 12px; right: 12px; bottom: 12px; padding: 12px; border-radius: 10px; color: #fff; z-index: 20; }
+.toast.ok { background: #15803d; } .toast.err { background: #b91c1c; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 10; }
+.modal { background: #fff; padding: 16px; border-radius: 12px; width: 100%; max-width: 380px; }
+.modal h2 { margin-top: 0; font-size: 1.1rem; }
+.modal label { display: block; margin-bottom: 10px; font-size: .9rem; }
+.modal input, .modal select { width: 100%; margin-top: 4px; }
