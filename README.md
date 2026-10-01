@@ -28,3 +28,4 @@ React (Vite) + Node/Express + Supabase.
   Env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, CLIENT_URL (your Vercel URL).
 - Frontend on Vercel: Root Directory `client`, Framework Vite.
   Env var: VITE_API_URL = your Render URL (no trailing slash).
+ Deployed on Vercel and Render
