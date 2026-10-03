@@ -1,6 +1,4 @@
-// ================= DATA STRUCTURES =================
 
-// 1) HASH TABLE (separate chaining) - O(1) average lookup by id
 export class HashTable {
   constructor(size = 64) {
     this.size = size;
@@ -33,7 +31,7 @@ export class HashTable {
   values() { return this.buckets.flat().map((e) => e[1]); }
 }
 
-// 2) QUEUE (linked nodes, FIFO) - waitlist for borrowed-out equipment
+
 export class Queue {
   constructor() { this.head = null; this.tail = null; this.length = 0; }
   enqueue(value) {
@@ -57,7 +55,7 @@ export class Queue {
   }
 }
 
-// 3) STACK (LIFO) - undo history
+
 export class Stack {
   constructor() { this.items = []; }
   push(v) { this.items.push(v); }
@@ -67,7 +65,7 @@ export class Stack {
   get length() { return this.items.length; }
 }
 
-// 4) TRIE (prefix tree) - autocomplete suggestions
+
 export class Trie {
   constructor() { this.root = { children: new Map(), words: new Set() }; }
   insert(word) {
@@ -88,9 +86,7 @@ export class Trie {
   }
 }
 
-// ================= ALGORITHMS =================
 
-// Comparator builder (strings case-insensitive, numbers numeric)
 export function makeComparator(field, order = 'asc') {
   const dir = order === 'desc' ? -1 : 1;
   return (a, b) => {
@@ -100,7 +96,7 @@ export function makeComparator(field, order = 'asc') {
   };
 }
 
-// 1) MERGE SORT - O(n log n), stable
+
 export function mergeSort(arr, cmp) {
   if (arr.length <= 1) return arr.slice();
   const mid = Math.floor(arr.length / 2);
@@ -113,7 +109,7 @@ export function mergeSort(arr, cmp) {
   return out;
 }
 
-// 2) QUICK SORT - O(n log n) average
+
 export function quickSort(arr, cmp) {
   const a = arr.slice();
   const sort = (lo, hi) => {
@@ -131,20 +127,20 @@ export function quickSort(arr, cmp) {
   return a;
 }
 
-// 3) BINARY SEARCH - O(log n) on an array sorted by keyFn (returns first match index or -1)
+
 export function binarySearch(sorted, target, keyFn) {
   let lo = 0, hi = sorted.length - 1, found = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
     const k = keyFn(sorted[mid]);
-    if (k === target) { found = mid; hi = mid - 1; } // keep going left for first match
+    if (k === target) { found = mid; hi = mid - 1; } 
     else if (k < target) lo = mid + 1;
     else hi = mid - 1;
   }
   return found;
 }
 
-// 4) LINEAR SEARCH - O(n) keyword match across several fields
+
 export function linearSearch(arr, keyword, fields) {
   const q = keyword.trim().toLowerCase();
   if (!q) return arr.slice();
