@@ -8,7 +8,7 @@ const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
 export default function App() {
   const [tab, setTab] = useState('equipment');
-  const [msg, setMsg] = useState(null); // {type, text}
+  const [msg, setMsg] = useState(null); 
   const notify = (text, type = 'ok') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000); };
 
   return (
@@ -29,14 +29,14 @@ export default function App() {
   );
 }
 
-/* ---------------- EQUIPMENT ---------------- */
+
 function Equipment({ notify }) {
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
   const [f, setF] = useState({ search: '', category: '', sort: 'name', order: 'asc', algo: 'merge' });
   const [suggestions, setSuggestions] = useState([]);
-  const [form, setForm] = useState(null);       // null | {id?, ...fields}
-  const [borrowing, setBorrowing] = useState(null); // equipment item
+  const [form, setForm] = useState(null);       
+  const [borrowing, setBorrowing] = useState(null); 
   const [bForm, setBForm] = useState(emptyBorrow);
   const [exact, setExact] = useState('');
 
@@ -157,7 +157,6 @@ function Equipment({ notify }) {
   );
 }
 
-/* ---------------- LOANS ---------------- */
 function Loans({ notify }) {
   const [loans, setLoans] = useState([]);
   const [f, setF] = useState({ status: 'active', search: '', sort: 'due_date', order: 'asc' });
@@ -209,7 +208,7 @@ function Loans({ notify }) {
   );
 }
 
-/* ---------------- WAITLIST ---------------- */
+
 function Waitlist({ notify }) {
   const [rows, setRows] = useState([]);
   const load = useCallback(async () => {
