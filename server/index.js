@@ -15,7 +15,7 @@ const app = express();
 app.use(cors({ origin: CLIENT_URL ? CLIENT_URL.split(',').map((s) => s.trim()) : '*' }));
 app.use(express.json());
 
-// ---------- helpers ----------
+
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -36,7 +36,7 @@ const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
 const SORT_FIELDS = ['name', 'category', 'quantity', 'available', 'condition', 'created_at'];
 
-// ---------- validation ----------
+
 function validateEquipment(b) {
   const errors = [];
   const name = String(b.name ?? '').trim();
@@ -66,8 +66,7 @@ const equipmentTable = async () => {
   return table;
 };
 
-// ---------- EQUIPMENT ----------
-// Display + Search (linear) + Sort (merge/quick)
+
 app.get('/api/equipment', wrap(async (req, res) => {
   const { search = '', category = '', sort = 'name', order = 'asc', algo = 'merge' } = req.query;
   if (!SORT_FIELDS.includes(sort)) throw new HttpError(400, 'Invalid sort field');
@@ -83,14 +82,12 @@ app.get('/api/equipment', wrap(async (req, res) => {
   });
 }));
 
-// Trie autocomplete
 app.get('/api/suggest', wrap(async (req, res) => {
   const trie = new Trie();
   (await all('equipment')).forEach((e) => trie.insert(e.name));
   res.json(trie.startsWith(String(req.query.q ?? '')));
 }));
 
-// Exact lookup: Merge Sort then Binary Search
 app.get('/api/equipment/lookup', wrap(async (req, res) => {
   const name = String(req.query.name ?? '').trim().toLowerCase();
   if (!name) throw new HttpError(400, 'Enter a name');
@@ -100,7 +97,7 @@ app.get('/api/equipment/lookup', wrap(async (req, res) => {
   res.json(sorted[idx]);
 }));
 
-// Get one via Hash Table
+
 app.get('/api/equipment/:id', wrap(async (req, res) => {
   const item = (await equipmentTable()).get(req.params.id);
   if (!item) throw new HttpError(404, 'Equipment not found');
@@ -139,11 +136,11 @@ app.delete('/api/equipment/:id', wrap(async (req, res) => {
   res.json({ deleted: true });
 }));
 
-// Undo using a Stack (LIFO) of the last actions
+
 app.post('/api/undo', wrap(async (req, res) => {
   const logs = ok(await supabase.from('action_log').select('*').order('id', { ascending: false }).limit(50));
   const stack = new Stack();
-  [...logs].reverse().forEach((l) => stack.push(l)); // oldest first, newest ends on top
+  [...logs].reverse().forEach((l) => stack.push(l)); 
   const last = stack.pop();
   if (!last) throw new HttpError(400, 'Nothing to undo');
   const { action, payload } = last;
@@ -217,7 +214,7 @@ app.get('/api/loans', wrap(async (req, res) => {
   const now = Date.now();
   let loans = (await all('loans', 'borrowed_at')).map((l) => ({
     ...l,
-    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', // O(1) hash lookup
+    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', 
     overdue: !l.returned_at && new Date(l.due_date).getTime() < now,
   }));
   if (status === 'active') loans = loans.filter((l) => !l.returned_at);
@@ -229,7 +226,7 @@ app.get('/api/loans', wrap(async (req, res) => {
 // ---------- WAITLIST ----------
 app.get('/api/waitlist', wrap(async (req, res) => {
   const table = await equipmentTable();
-  const queues = new HashTable(); // equipment_id -> Queue
+  const queues = new HashTable(); 
   (await all('waitlist')).forEach((w) => {
     if (!queues.has(w.equipment_id)) queues.set(w.equipment_id, new Queue());
     queues.get(w.equipment_id).enqueue(w);
