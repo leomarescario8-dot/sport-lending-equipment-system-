@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api } from './api.js';
+import { api, auth } from './api.js';
 
 const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
@@ -10,7 +10,17 @@ const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 export default function App() {
   const [tab, setTab] = useState('equipment');
   const [msg, setMsg] = useState(null); 
+  const [user, setUser] = useState(auth.token() ? auth.email() : null);
   const notify = (text, type = 'ok') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000); };
+
+  useEffect(() => {
+    const expired = () => setUser(null);
+    window.addEventListener('auth-expired', expired);
+    return () => window.removeEventListener('auth-expired', expired);
+  }, []);
+  const logout = () => { auth.clear(); setUser(null); setTab('equipment'); };
+
+  if (!user) return <Login onLogin={setUser} />;
 
   return (
     <div className="app">
@@ -21,6 +31,10 @@ export default function App() {
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
+        <div className="who">
+          <span>{user}</span>
+          <button className="danger" onClick={logout}>Logout</button>
+        </div>
       </header>
       {msg && <div className={'toast ' + msg.type}>{msg.text}</div>}
       {tab === 'equipment' && <Equipment notify={notify} />}
@@ -30,9 +44,42 @@ export default function App() {
   );
 }
 
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    try {
+      const r = await api.login(email, password);
+      auth.save(r.token, r.email);
+      onLogin(r.email);
+    } catch (ex) { setErr(ex.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="loginwrap">
+      <form className="logincard" onSubmit={submit}>
+        <div className="logoemoji">🏀</div>
+        <h2>Sport Lending Equipment</h2>
+        <p className="meta">Please log in to continue</p>
+        <label>Email<input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label>Password<input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        {err && <div className="loginerr">{err}</div>}
+        <button className="primary" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
+        {busy && <p className="meta">The server may take up to a minute to wake up.</p>}
+      </form>
+    </div>
+  );
+}
+
+
 function Equipment({ notify }) {
   const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState(null);
   const [f, setF] = useState({ search: '', category: '', sort: 'name', order: 'asc', algo: 'merge' });
   const [suggestions, setSuggestions] = useState([]);
   const [form, setForm] = useState(null);       
@@ -43,7 +90,7 @@ function Equipment({ notify }) {
   const load = useCallback(async () => {
     try {
       const d = await api.listEquipment(f);
-      setItems(d.items); setMeta(d.meta);
+      setItems(d.items);
     } catch (e) { notify(e.message, 'err'); }
   }, [f]);
   useEffect(() => { load(); }, [load]);
@@ -80,7 +127,7 @@ function Equipment({ notify }) {
     } catch (err) { notify(err.message, 'err'); }
   };
   const findExact = async () => {
-    try { const r = await api.lookup(exact); notify(`Binary Search found: ${r.name} (${r.available}/${r.quantity} available)`); }
+    try { const r = await api.lookup(exact); notify(`Found: ${r.name} (${r.available}/${r.quantity} available)`); }
     catch (err) { notify(err.message, 'err'); }
   };
 
@@ -108,17 +155,13 @@ function Equipment({ notify }) {
         <select value={f.order} onChange={(e) => setF({ ...f, order: e.target.value })}>
           <option value="asc">A → Z</option><option value="desc">Z → A</option>
         </select>
-        <select value={f.algo} onChange={(e) => setF({ ...f, algo: e.target.value })}>
-          <option value="merge">Merge Sort</option><option value="quick">Quick Sort</option>
-        </select>
       </div>
       <div className="toolbar">
-        <input placeholder="Exact name (Binary Search)" value={exact} onChange={(e) => setExact(e.target.value)} />
+        <input placeholder="Exact name" value={exact} onChange={(e) => setExact(e.target.value)} />
         <button onClick={findExact}>Find</button>
         <button className="primary" onClick={() => setForm(emptyForm)}>+ Add</button>
         <button onClick={undo}>↩ Undo</button>
       </div>
-      {meta && <p className="meta">{meta.algorithm} · {meta.search} · {meta.count} items · {meta.ms} ms</p>}
 
       <div className="lockers">
         {items.map((it, i) => {
@@ -176,6 +219,7 @@ function Equipment({ notify }) {
     </section>
   );
 }
+
 
 function Loans({ notify }) {
   const [loans, setLoans] = useState([]);
@@ -267,4 +311,5 @@ function Modal({ title, onClose, children }) {
       </div>
     </div>
   );
-      }
+                      }
+    
