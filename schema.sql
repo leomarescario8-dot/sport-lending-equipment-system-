@@ -1,4 +1,4 @@
--- Run this in Supabase > SQL Editor
+
 create extension if not exists pgcrypto;
 
 create table if not exists equipment (
@@ -37,7 +37,7 @@ create table if not exists action_log (
   created_at timestamptz not null default now()
 );
 
--- Sample data
+
 insert into equipment (name, category, quantity, available, condition) values
  ('Basketball', 'Ball', 10, 10, 'Good'),
  ('Volleyball', 'Ball', 8, 8, 'Good'),
