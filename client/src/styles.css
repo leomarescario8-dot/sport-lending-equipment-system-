@@ -59,7 +59,6 @@ button.danger { color: #fda4af; border-color: rgba(244,63,94,.45); background: r
 button.danger:hover { background: var(--danger); color: #fff; }
 button.link { border: 0; background: none; color: var(--muted); margin-top: 8px; box-shadow: none; }
 
-
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
 .stat {
   background: rgba(255,255,255,.07); border: 1px solid var(--border); border-radius: 14px;
@@ -86,7 +85,6 @@ input:focus, select:focus {
 }
 .meta { font-size: .8rem; color: var(--muted); margin: 6px 4px; }
 .empty { text-align: center; color: var(--muted); padding: 24px; }
-
 
 .lockers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 720px) { .lockers { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -161,4 +159,26 @@ tbody tr:hover { background: rgba(255,107,44,.08); box-shadow: inset 3px 0 0 var
 @media (max-width: 520px) {
   h1 { font-size: 1.05rem; }
   .emoji { font-size: 38px; }
-                     }
+}
+
+
+.who { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--muted); }
+.who span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who button { padding: 6px 12px; font-size: .8rem; }
+.loginwrap { min-height: 85vh; display: flex; align-items: center; justify-content: center; }
+.logincard {
+  width: 100%; max-width: 380px; text-align: center; padding: 26px 22px;
+  background: rgba(18,26,48,.9); border: 1px solid var(--border); border-radius: 22px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.55); animation: pop .3s ease;
+}
+.logoemoji { font-size: 54px; filter: drop-shadow(0 0 16px rgba(255,107,44,.6)); }
+.logincard h2 { margin: 6px 0 2px; color: #fff; font-size: 1.2rem; text-shadow: 0 0 18px rgba(255,107,44,.6); }
+.logincard label { display: block; text-align: left; margin: 14px 0 0; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.logincard input { width: 100%; margin-top: 5px; font-weight: 400; }
+.logincard button.primary { width: 100%; margin-top: 18px; padding: 12px; }
+.logincard button:disabled { opacity: .6; cursor: wait; }
+.loginerr {
+  margin-top: 12px; padding: 9px 12px; border-radius: 10px; font-size: .85rem;
+  background: rgba(244,63,94,.15); border: 1px solid rgba(244,63,94,.5); color: #fda4af;
+  }
+                               
