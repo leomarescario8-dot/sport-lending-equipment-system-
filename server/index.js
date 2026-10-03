@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { HashTable, Queue, Stack, Trie, makeComparator, mergeSort, quickSort, binarySearch, linearSearch } from './dsa.js';
 
@@ -12,9 +13,9 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({ origin: CLIENT_URL ? CLIENT_URL.split(',').map((s) => s.trim()) : '*' }));
 app.use(express.json());
-
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -35,7 +36,6 @@ const logAction = async (action, payload) => ok(await supabase.from('action_log'
 const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
 const SORT_FIELDS = ['name', 'category', 'quantity', 'available', 'condition', 'created_at'];
-
 
 function validateEquipment(b) {
   const errors = [];
@@ -66,6 +66,53 @@ const equipmentTable = async () => {
   return table;
 };
 
+const TOKEN_SECRET = SUPABASE_SERVICE_KEY; 
+const TOKEN_HOURS = 8;
+const signToken = (email) => {
+  const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + TOKEN_HOURS * 3600 * 1000 })).toString('base64url');
+  const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
+  return payload + '.' + sig;
+};
+const verifyToken = (token) => {
+  const [payload, sig] = String(token || '').split('.');
+  if (!payload || !sig) return null;
+  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
+  const a = Buffer.from(sig), b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return data.exp > Date.now() ? data : null;
+  } catch { return null; }
+};
+const attempts = new Map();
+const tooMany = (ip) => {
+  const now = Date.now();
+  const a = attempts.get(ip);
+  if (!a || a.reset < now) { attempts.set(ip, { count: 1, reset: now + 15 * 60 * 1000 }); return false; }
+  a.count++;
+  return a.count > 10;
+};
+
+app.post('/api/login', wrap(async (req, res) => {
+  if (tooMany(req.ip)) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
+  const email = String(req.body.email ?? '').trim();
+  const password = String(req.body.password ?? '');
+  if (!email || !password) throw new HttpError(400, 'Enter your email and password');
+  const { data, error } = await supabase.rpc('verify_login', { p_email: email, p_password: password });
+  if (error) throw new HttpError(500, error.message);
+  if (!data) throw new HttpError(401, 'Wrong email or password');
+  attempts.delete(req.ip);
+  res.json({ token: signToken(email), email });
+}));
+
+
+app.use('/api', (req, res, next) => {
+  const h = req.headers.authorization || '';
+  const user = verifyToken(h.startsWith('Bearer ') ? h.slice(7) : '');
+  if (!user) return res.status(401).json({ error: 'Please log in' });
+  req.user = user;
+  next();
+
 
 app.get('/api/equipment', wrap(async (req, res) => {
   const { search = '', category = '', sort = 'name', order = 'asc', algo = 'merge' } = req.query;
@@ -82,11 +129,13 @@ app.get('/api/equipment', wrap(async (req, res) => {
   });
 }));
 
+
 app.get('/api/suggest', wrap(async (req, res) => {
   const trie = new Trie();
   (await all('equipment')).forEach((e) => trie.insert(e.name));
   res.json(trie.startsWith(String(req.query.q ?? '')));
 }));
+
 
 app.get('/api/equipment/lookup', wrap(async (req, res) => {
   const name = String(req.query.name ?? '').trim().toLowerCase();
@@ -97,7 +146,7 @@ app.get('/api/equipment/lookup', wrap(async (req, res) => {
   res.json(sorted[idx]);
 }));
 
-
+// Get one via Hash Table
 app.get('/api/equipment/:id', wrap(async (req, res) => {
   const item = (await equipmentTable()).get(req.params.id);
   if (!item) throw new HttpError(404, 'Equipment not found');
@@ -156,7 +205,7 @@ app.post('/api/undo', wrap(async (req, res) => {
   res.json({ undone: action });
 }));
 
-// ---------- LOANS ----------
+
 app.post('/api/borrow', wrap(async (req, res) => {
   const { equipment_id } = req.body;
   const person = validateBorrower(req.body);
@@ -176,7 +225,7 @@ app.post('/api/borrow', wrap(async (req, res) => {
     }).select());
     return res.status(201).json({ status: 'borrowed', loan });
   }
-  // none available -> enqueue
+ 
   const queue = new Queue();
   waiting.forEach((w) => queue.enqueue(w));
   ok(await supabase.from('waitlist').insert({ equipment_id, ...person }));
@@ -189,7 +238,7 @@ app.post('/api/return/:loanId', wrap(async (req, res) => {
   if (loan.returned_at) throw new HttpError(409, 'Already returned');
   ok(await supabase.from('loans').update({ returned_at: new Date().toISOString() }).eq('id', loan.id));
 
-  // Dequeue next person in line (FIFO)
+ 
   const queue = new Queue();
   ok(await supabase.from('waitlist').select('*').eq('equipment_id', loan.equipment_id).order('created_at'))
     .forEach((w) => queue.enqueue(w));
@@ -223,7 +272,7 @@ app.get('/api/loans', wrap(async (req, res) => {
   res.json(loans);
 }));
 
-// ---------- WAITLIST ----------
+
 app.get('/api/waitlist', wrap(async (req, res) => {
   const table = await equipmentTable();
   const queues = new HashTable(); 
@@ -243,3 +292,4 @@ app.delete('/api/waitlist/:id', wrap(async (req, res) => {
 
 app.get('/', (req, res) => res.json({ status: 'Sport Lending API running' }));
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+  
