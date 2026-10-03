@@ -66,6 +66,7 @@ const equipmentTable = async () => {
   return table;
 };
 
+
 const TOKEN_SECRET = SUPABASE_SERVICE_KEY; 
 const TOKEN_HOURS = 8;
 const signToken = (email) => {
@@ -84,7 +85,7 @@ const verifyToken = (token) => {
     return data.exp > Date.now() ? data : null;
   } catch { return null; }
 };
-const attempts = new Map();
+const attempts = new Map(); 
 const tooMany = (ip) => {
   const now = Date.now();
   const a = attempts.get(ip);
@@ -112,6 +113,7 @@ app.use('/api', (req, res, next) => {
   if (!user) return res.status(401).json({ error: 'Please log in' });
   req.user = user;
   next();
+});
 
 
 app.get('/api/equipment', wrap(async (req, res) => {
@@ -146,7 +148,7 @@ app.get('/api/equipment/lookup', wrap(async (req, res) => {
   res.json(sorted[idx]);
 }));
 
-// Get one via Hash Table
+
 app.get('/api/equipment/:id', wrap(async (req, res) => {
   const item = (await equipmentTable()).get(req.params.id);
   if (!item) throw new HttpError(404, 'Equipment not found');
@@ -185,11 +187,10 @@ app.delete('/api/equipment/:id', wrap(async (req, res) => {
   res.json({ deleted: true });
 }));
 
-
 app.post('/api/undo', wrap(async (req, res) => {
   const logs = ok(await supabase.from('action_log').select('*').order('id', { ascending: false }).limit(50));
   const stack = new Stack();
-  [...logs].reverse().forEach((l) => stack.push(l)); 
+  [...logs].reverse().forEach((l) => stack.push(l)); // oldest first, newest ends on top
   const last = stack.pop();
   if (!last) throw new HttpError(400, 'Nothing to undo');
   const { action, payload } = last;
@@ -225,7 +226,7 @@ app.post('/api/borrow', wrap(async (req, res) => {
     }).select());
     return res.status(201).json({ status: 'borrowed', loan });
   }
- 
+
   const queue = new Queue();
   waiting.forEach((w) => queue.enqueue(w));
   ok(await supabase.from('waitlist').insert({ equipment_id, ...person }));
@@ -238,7 +239,7 @@ app.post('/api/return/:loanId', wrap(async (req, res) => {
   if (loan.returned_at) throw new HttpError(409, 'Already returned');
   ok(await supabase.from('loans').update({ returned_at: new Date().toISOString() }).eq('id', loan.id));
 
- 
+  
   const queue = new Queue();
   ok(await supabase.from('waitlist').select('*').eq('equipment_id', loan.equipment_id).order('created_at'))
     .forEach((w) => queue.enqueue(w));
@@ -263,7 +264,7 @@ app.get('/api/loans', wrap(async (req, res) => {
   const now = Date.now();
   let loans = (await all('loans', 'borrowed_at')).map((l) => ({
     ...l,
-    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', 
+    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', // O(1) hash lookup
     overdue: !l.returned_at && new Date(l.due_date).getTime() < now,
   }));
   if (status === 'active') loans = loans.filter((l) => !l.returned_at);
@@ -275,7 +276,7 @@ app.get('/api/loans', wrap(async (req, res) => {
 
 app.get('/api/waitlist', wrap(async (req, res) => {
   const table = await equipmentTable();
-  const queues = new HashTable(); 
+  const queues = new HashTable(); // equipment_id -> Queue
   (await all('waitlist')).forEach((w) => {
     if (!queues.has(w.equipment_id)) queues.set(w.equipment_id, new Queue());
     queues.get(w.equipment_id).enqueue(w);
@@ -292,4 +293,3 @@ app.delete('/api/waitlist/:id', wrap(async (req, res) => {
 
 app.get('/', (req, res) => res.json({ status: 'Sport Lending API running' }));
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
-  
