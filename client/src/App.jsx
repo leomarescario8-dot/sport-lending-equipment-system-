@@ -3,6 +3,7 @@ import { api } from './api.js';
 
 const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
+const ICONS = { Ball: '🏀', Racket: '🏸', 'Protective Gear': '🛡️', Fitness: '💪', Other: '🎽' };
 const emptyForm = { name: '', category: 'Ball', quantity: 1, condition: 'Good' };
 const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
@@ -28,7 +29,6 @@ export default function App() {
     </div>
   );
 }
-
 
 function Equipment({ notify }) {
   const [items, setItems] = useState([]);
@@ -84,8 +84,17 @@ function Equipment({ notify }) {
     catch (err) { notify(err.message, 'err'); }
   };
 
+  const total = items.reduce((s, i) => s + i.quantity, 0);
+  const available = items.reduce((s, i) => s + i.available, 0);
+
   return (
     <section>
+      <div className="stats">
+        <div className="stat s1"><b>{total}</b><span>Total</span></div>
+        <div className="stat s2"><b>{available}</b><span>Available</span></div>
+        <div className="stat s3"><b>{total - available}</b><span>On loan</span></div>
+      </div>
+
       <div className="toolbar">
         <input list="sugg" placeholder="Search equipment…" value={f.search} onChange={(e) => onSearch(e.target.value)} />
         <datalist id="sugg">{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
@@ -111,25 +120,36 @@ function Equipment({ notify }) {
       </div>
       {meta && <p className="meta">{meta.algorithm} · {meta.search} · {meta.count} items · {meta.ms} ms</p>}
 
-      <div className="tablewrap">
-        <table>
-          <thead><tr><th>Name</th><th>Category</th><th>Qty</th><th>Available</th><th>Condition</th><th></th></tr></thead>
-          <tbody>
-            {items.map((it) => (
-              <tr key={it.id}>
-                <td>{it.name}</td><td>{it.category}</td><td>{it.quantity}</td>
-                <td className={it.available === 0 ? 'bad' : ''}>{it.available}</td><td>{it.condition}</td>
-                <td className="actions">
+      <div className="lockers">
+        {items.map((it, i) => {
+          const pct = it.quantity ? Math.round((it.available / it.quantity) * 100) : 0;
+          return (
+            <div key={it.id} className="locker" style={{ animationDelay: `${i * 0.05}s` }}>
+              <div className="door">
+                <div className="vents"><span /><span /><span /></div>
+                <div className="plate-row">
+                  <span className="plate">{String(i + 1).padStart(2, '0')}</span>
+                  <span className={'led ' + (it.available > 0 ? 'on' : 'off')} />
+                </div>
+                <div className="emoji">{ICONS[it.category] || '🎽'}</div>
+                <div className="handle" />
+              </div>
+              <div className="label">
+                <div className="lname">{it.name}</div>
+                <div className="lmeta">{it.category} · {it.condition}</div>
+                <div className="bar"><div style={{ width: pct + '%' }} /></div>
+                <div className="lmeta">{it.available} / {it.quantity} available</div>
+                <div className="lactions">
                   <button onClick={() => setBorrowing(it)}>{it.available > 0 ? 'Borrow' : 'Waitlist'}</button>
                   <button onClick={() => setForm({ id: it.id, name: it.name, category: it.category, quantity: it.quantity, condition: it.condition })}>Edit</button>
-                  <button className="danger" onClick={() => remove(it)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && <tr><td colSpan="6" className="empty">No equipment found</td></tr>}
-          </tbody>
-        </table>
+                  <button className="danger" onClick={() => remove(it)}>Del</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+      {items.length === 0 && <p className="empty">No equipment found</p>}
 
       {form && (
         <Modal title={form.id ? 'Edit equipment' : 'Add equipment'} onClose={() => setForm(null)}>
@@ -247,4 +267,4 @@ function Modal({ title, onClose, children }) {
       </div>
     </div>
   );
-}
+      }
