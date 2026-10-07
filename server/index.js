@@ -33,7 +33,7 @@ const all = async (table, orderBy = 'created_at') =>
   ok(await supabase.from(table).select('*').order(orderBy, { ascending: true }));
 const logAction = async (action, payload) => ok(await supabase.from('action_log').insert({ action, payload }));
 
-const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
+const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Footwear', 'Uniform', 'Goal & Net', 'Track & Running', 'Jumping', 'Throwing', 'Combat Sports', 'Aquatics', 'Gymnastics', 'Cycling', 'Table Games', 'Timing & Measuring', 'First Aid', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
 const SORT_FIELDS = ['name', 'category', 'quantity', 'available', 'condition', 'created_at'];
 
@@ -190,7 +190,7 @@ app.delete('/api/equipment/:id', wrap(async (req, res) => {
 app.post('/api/undo', wrap(async (req, res) => {
   const logs = ok(await supabase.from('action_log').select('*').order('id', { ascending: false }).limit(50));
   const stack = new Stack();
-  [...logs].reverse().forEach((l) => stack.push(l)); // oldest first, newest ends on top
+  [...logs].reverse().forEach((l) => stack.push(l)); 
   const last = stack.pop();
   if (!last) throw new HttpError(400, 'Nothing to undo');
   const { action, payload } = last;
@@ -264,7 +264,7 @@ app.get('/api/loans', wrap(async (req, res) => {
   const now = Date.now();
   let loans = (await all('loans', 'borrowed_at')).map((l) => ({
     ...l,
-    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', // O(1) hash lookup
+    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', 
     overdue: !l.returned_at && new Date(l.due_date).getTime() < now,
   }));
   if (status === 'active') loans = loans.filter((l) => !l.returned_at);
@@ -276,7 +276,7 @@ app.get('/api/loans', wrap(async (req, res) => {
 
 app.get('/api/waitlist', wrap(async (req, res) => {
   const table = await equipmentTable();
-  const queues = new HashTable(); // equipment_id -> Queue
+  const queues = new HashTable(); 
   (await all('waitlist')).forEach((w) => {
     if (!queues.has(w.equipment_id)) queues.set(w.equipment_id, new Queue());
     queues.get(w.equipment_id).enqueue(w);
