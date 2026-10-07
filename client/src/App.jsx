@@ -91,6 +91,7 @@ function Equipment({ notify }) {
   const [borrowing, setBorrowing] = useState(null); 
   const [bForm, setBForm] = useState(emptyBorrow);
   const [exact, setExact] = useState('');
+  const [hit, setHit] = useState(null);
 
   const load = useCallback(async () => {
     try {
