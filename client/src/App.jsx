@@ -1,9 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, auth } from './api.js';
 
-const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Other'];
+const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Footwear', 'Uniform', 'Goal & Net', 'Track & Running', 'Jumping', 'Throwing', 'Combat Sports', 'Aquatics', 'Gymnastics', 'Cycling', 'Table Games', 'Timing & Measuring', 'First Aid', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
-const ICONS = { Ball: '🏀', Racket: '🏸', 'Protective Gear': '🛡️', Fitness: '💪', Other: '🎽' };
+const ICONS = {
+  Ball: '🏀', Racket: '🏸', 'Protective Gear': '🛡️', Fitness: '💪', Footwear: '👟', Uniform: '👕',
+  'Goal & Net': '🥅', 'Track & Running': '🏃', Jumping: '🤾', Throwing: '🏹', 'Combat Sports': '🥊',
+  Aquatics: '🏊', Gymnastics: '🤸', Cycling: '🚴', 'Table Games': '♟️', 'Timing & Measuring': '⏱️',
+  'First Aid': '🩹', Other: '🎽',
+};
 const emptyForm = { name: '', category: 'Ball', quantity: 1, condition: 'Good' };
 const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
