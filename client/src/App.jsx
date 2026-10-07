@@ -133,10 +133,23 @@ function Equipment({ notify }) {
     } catch (err) { notify(err.message, 'err'); }
   };
   const findExact = async () => {
-    try { const r = await api.lookup(exact); notify(`Found: ${r.name} (${r.available}/${r.quantity} available)`); }
-    catch (err) { notify(err.message, 'err'); }
+    try {
+      const r = await api.lookup(exact);
+      notify(`Found: ${r.name} (${r.available}/${r.quantity} available)`);
+      setHit(r.id);
+      setTimeout(() => setHit(null), 4000);
+      document.getElementById('eq-' + r.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) { notify(err.message, 'err'); }
   };
-
+  const findExact = async () => {
+    try {
+      const r = await api.lookup(exact);
+      notify(`Found: ${r.name} (${r.available}/${r.quantity} available)`);
+      setHit(r.id);
+      setTimeout(() => setHit(null), 4000);
+      document.getElementById('eq-' + r.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) { notify(err.message, 'err'); }
+  };
   const total = items.reduce((s, i) => s + i.quantity, 0);
   const available = items.reduce((s, i) => s + i.available, 0);
 
