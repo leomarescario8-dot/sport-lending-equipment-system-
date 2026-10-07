@@ -172,7 +172,7 @@ function Equipment({ notify }) {
         {items.map((it, i) => {
           const pct = it.quantity ? Math.round((it.available / it.quantity) * 100) : 0;
           return (
-            <div key={it.id} className="locker" style={{ animationDelay: `${i * 0.05}s` }}>
+            <div key={it.id} id={'eq-' + it.id} className={'locker' + (hit === it.id ? ' hit' : '')} style={{ animationDelay: `${i * 0.05}s` }>
               <div className="door">
                 <div className="vents"><span /><span /><span /></div>
                 <div className="plate-row">
