@@ -17,6 +17,7 @@ app.set('trust proxy', 1);
 app.use(cors({ origin: CLIENT_URL ? CLIENT_URL.split(',').map((s) => s.trim()) : '*' }));
 app.use(express.json());
 
+
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -36,6 +37,7 @@ const logAction = async (action, payload) => ok(await supabase.from('action_log'
 const CATEGORIES = ['Ball', 'Racket', 'Protective Gear', 'Fitness', 'Footwear', 'Uniform', 'Goal & Net', 'Track & Running', 'Jumping', 'Throwing', 'Combat Sports', 'Aquatics', 'Gymnastics', 'Cycling', 'Table Games', 'Timing & Measuring', 'First Aid', 'Other'];
 const CONDITIONS = ['Good', 'Fair', 'Poor'];
 const SORT_FIELDS = ['name', 'category', 'quantity', 'available', 'condition', 'created_at'];
+
 
 function validateEquipment(b) {
   const errors = [];
@@ -67,10 +69,10 @@ const equipmentTable = async () => {
 };
 
 
-const TOKEN_SECRET = SUPABASE_SERVICE_KEY; 
+const TOKEN_SECRET = SUPABASE_SERVICE_KEY; // already a server-only secret, so no new env var is needed
 const TOKEN_HOURS = 8;
-const signToken = (email) => {
-  const payload = Buffer.from(JSON.stringify({ email, exp: Date.now() + TOKEN_HOURS * 3600 * 1000 })).toString('base64url');
+const signToken = (email, role) => {
+  const payload = Buffer.from(JSON.stringify({ email, role, exp: Date.now() + TOKEN_HOURS * 3600 * 1000 })).toString('base64url');
   const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
   return payload + '.' + sig;
 };
@@ -82,7 +84,7 @@ const verifyToken = (token) => {
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return data.exp > Date.now() ? data : null;
+    return data.exp > Date.now() && (data.role === 'admin' || data.role === 'user') ? data : null;
   } catch { return null; }
 };
 const attempts = new Map(); 
@@ -94,16 +96,40 @@ const tooMany = (ip) => {
   return a.count > 10;
 };
 
+const signups = new Map(); 
+const tooManySignups = (ip) => {
+  const now = Date.now();
+  const a = signups.get(ip);
+  if (!a || a.reset < now) { signups.set(ip, { count: 1, reset: now + 60 * 60 * 1000 }); return false; }
+  a.count++;
+  return a.count > 10;
+};
+
 app.post('/api/login', wrap(async (req, res) => {
   if (tooMany(req.ip)) throw new HttpError(429, 'Too many attempts. Try again in 15 minutes.');
   const email = String(req.body.email ?? '').trim();
   const password = String(req.body.password ?? '');
   if (!email || !password) throw new HttpError(400, 'Enter your email and password');
-  const { data, error } = await supabase.rpc('verify_login', { p_email: email, p_password: password });
+  const { data: role, error } = await supabase.rpc('login_user', { p_email: email, p_password: password });
   if (error) throw new HttpError(500, error.message);
-  if (!data) throw new HttpError(401, 'Wrong email or password');
+  if (!role) throw new HttpError(401, 'Wrong email or password');
   attempts.delete(req.ip);
-  res.json({ token: signToken(email), email });
+  res.json({ token: signToken(email, role), email, role });
+}));
+
+
+app.post('/api/register', wrap(async (req, res) => {
+  if (tooManySignups(req.ip)) throw new HttpError(429, 'Too many new accounts from this connection. Try again later.');
+  const email = String(req.body.email ?? '').trim().toLowerCase();
+  const password = String(req.body.password ?? '');
+  const errors = [];
+  if (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errors.push('Enter a valid email address');
+  if (password.length < 8 || password.length > 72) errors.push('Password must be 8 to 72 characters');
+  if (errors.length) throw new HttpError(400, errors.join('. '));
+  const { data: created, error } = await supabase.rpc('register_user', { p_email: email, p_password: password });
+  if (error) throw new HttpError(500, error.message);
+  if (!created) throw new HttpError(409, 'That email is already registered. Please log in.');
+  res.status(201).json({ token: signToken(email, 'user'), email, role: 'user' });
 }));
 
 
@@ -114,6 +140,10 @@ app.use('/api', (req, res, next) => {
   req.user = user;
   next();
 });
+
+
+const adminOnly = (req, res, next) =>
+  req.user.role === 'admin' ? next() : res.status(403).json({ error: 'Only an admin can do this' });
 
 
 app.get('/api/equipment', wrap(async (req, res) => {
@@ -136,8 +166,7 @@ app.get('/api/suggest', wrap(async (req, res) => {
   const trie = new Trie();
   (await all('equipment')).forEach((e) => trie.insert(e.name));
   res.json(trie.startsWith(String(req.query.q ?? '')));
-}));
-
+}))
 
 app.get('/api/equipment/lookup', wrap(async (req, res) => {
   const name = String(req.query.name ?? '').trim().toLowerCase();
@@ -155,7 +184,7 @@ app.get('/api/equipment/:id', wrap(async (req, res) => {
   res.json(item);
 }));
 
-app.post('/api/equipment', wrap(async (req, res) => {
+app.post('/api/equipment', adminOnly, wrap(async (req, res) => {
   const clean = validateEquipment(req.body);
   const dup = (await all('equipment')).find((e) => e.name.toLowerCase() === clean.name.toLowerCase());
   if (dup) throw new HttpError(409, 'Equipment with that name already exists');
@@ -164,7 +193,7 @@ app.post('/api/equipment', wrap(async (req, res) => {
   res.status(201).json(row);
 }));
 
-app.put('/api/equipment/:id', wrap(async (req, res) => {
+app.put('/api/equipment/:id', adminOnly, wrap(async (req, res) => {
   const table = await equipmentTable();
   const old = table.get(req.params.id);
   if (!old) throw new HttpError(404, 'Equipment not found');
@@ -178,7 +207,7 @@ app.put('/api/equipment/:id', wrap(async (req, res) => {
   res.json(row);
 }));
 
-app.delete('/api/equipment/:id', wrap(async (req, res) => {
+app.delete('/api/equipment/:id', adminOnly, wrap(async (req, res) => {
   const old = (await equipmentTable()).get(req.params.id);
   if (!old) throw new HttpError(404, 'Equipment not found');
   if (old.quantity - old.available > 0) throw new HttpError(409, 'Cannot delete: some units are still borrowed');
@@ -187,7 +216,8 @@ app.delete('/api/equipment/:id', wrap(async (req, res) => {
   res.json({ deleted: true });
 }));
 
-app.post('/api/undo', wrap(async (req, res) => {
+
+app.post('/api/undo', adminOnly, wrap(async (req, res) => {
   const logs = ok(await supabase.from('action_log').select('*').order('id', { ascending: false }).limit(50));
   const stack = new Stack();
   [...logs].reverse().forEach((l) => stack.push(l)); 
@@ -226,7 +256,7 @@ app.post('/api/borrow', wrap(async (req, res) => {
     }).select());
     return res.status(201).json({ status: 'borrowed', loan });
   }
-
+  
   const queue = new Queue();
   waiting.forEach((w) => queue.enqueue(w));
   ok(await supabase.from('waitlist').insert({ equipment_id, ...person }));
@@ -264,7 +294,7 @@ app.get('/api/loans', wrap(async (req, res) => {
   const now = Date.now();
   let loans = (await all('loans', 'borrowed_at')).map((l) => ({
     ...l,
-    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', 
+    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', // O(1) hash lookup
     overdue: !l.returned_at && new Date(l.due_date).getTime() < now,
   }));
   if (status === 'active') loans = loans.filter((l) => !l.returned_at);
@@ -293,3 +323,4 @@ app.delete('/api/waitlist/:id', wrap(async (req, res) => {
 
 app.get('/', (req, res) => res.json({ status: 'Sport Lending API running' }));
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+    
