@@ -14,8 +14,8 @@ const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
 export default function App() {
   const [tab, setTab] = useState('equipment');
-  const [msg, setMsg] = useState(null); 
-  const [user, setUser] = useState(auth.token() ? auth.email() : null);
+  const [msg, setMsg] = useState(null); // {type, text}
+  const [user, setUser] = useState(auth.token() ? { email: auth.email(), role: auth.role() || 'user' } : null);
   const notify = (text, type = 'ok') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000); };
 
   useEffect(() => {
@@ -37,12 +37,13 @@ export default function App() {
           ))}
         </nav>
         <div className="who">
-          <span>{user}</span>
+          <span>{user.email}</span>
+          <span className={'badge ' + user.role}>{user.role}</span>
           <button className="danger" onClick={logout}>Logout</button>
         </div>
       </header>
       {msg && <div className={'toast ' + msg.type}>{msg.text}</div>}
-      {tab === 'equipment' && <Equipment notify={notify} />}
+      {tab === 'equipment' && <Equipment notify={notify} isAdmin={user.role === 'admin'} />}
       {tab === 'loans' && <Loans notify={notify} />}
       {tab === 'waitlist' && <Waitlist notify={notify} />}
     </div>
@@ -50,18 +51,25 @@ export default function App() {
 }
 
 function Login({ onLogin }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const isReg = mode === 'register';
+
+  const switchMode = (m) => { setMode(m); setErr(''); setPassword(''); setConfirm(''); };
 
   const submit = async (e) => {
     e.preventDefault();
-    setBusy(true); setErr('');
+    setErr('');
+    if (isReg && password !== confirm) { setErr('Passwords do not match'); return; }
+    setBusy(true);
     try {
-      const r = await api.login(email, password);
-      auth.save(r.token, r.email);
-      onLogin(r.email);
+      const r = isReg ? await api.register(email, password) : await api.login(email, password);
+      auth.save(r.token, r.email, r.role);
+      onLogin({ email: r.email, role: r.role });
     } catch (ex) { setErr(ex.message); }
     finally { setBusy(false); }
   };
@@ -71,11 +79,18 @@ function Login({ onLogin }) {
       <form className="logincard" onSubmit={submit}>
         <div className="logoemoji">🏀</div>
         <h2>Sport Lending Equipment</h2>
-        <p className="meta">Please log in to continue</p>
+        <div className="authtabs">
+          <button type="button" className={!isReg ? 'active' : ''} onClick={() => switchMode('login')}>Log in</button>
+          <button type="button" className={isReg ? 'active' : ''} onClick={() => switchMode('register')}>Create account</button>
+        </div>
         <label>Email<input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-        <label>Password<input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        <label>Password<input type="password" required minLength={isReg ? 8 : undefined} autoComplete={isReg ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        {isReg && (
+          <label>Confirm password<input type="password" required minLength={8} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+        )}
+        {isReg && <p className="hint">At least 8 characters. New accounts can view, search, borrow, and return equipment. Only an admin can add, edit, or delete.</p>}
         {err && <div className="loginerr">{err}</div>}
-        <button className="primary" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
+        <button className="primary" disabled={busy}>{busy ? 'Please wait…' : isReg ? 'Create account' : 'Log in'}</button>
         {busy && <p className="meta">The server may take up to a minute to wake up.</p>}
       </form>
     </div>
@@ -83,12 +98,12 @@ function Login({ onLogin }) {
 }
 
 
-function Equipment({ notify }) {
+function Equipment({ notify, isAdmin }) {
   const [items, setItems] = useState([]);
   const [f, setF] = useState({ search: '', category: '', sort: 'name', order: 'asc', algo: 'merge' });
   const [suggestions, setSuggestions] = useState([]);
-  const [form, setForm] = useState(null);       
-  const [borrowing, setBorrowing] = useState(null);
+  const [form, setForm] = useState(null);       // null | {id?, ...fields}
+  const [borrowing, setBorrowing] = useState(null); // equipment item
   const [bForm, setBForm] = useState(emptyBorrow);
   const [exact, setExact] = useState('');
   const [hit, setHit] = useState(null);
@@ -170,8 +185,8 @@ function Equipment({ notify }) {
       <div className="toolbar">
         <input placeholder="Exact name" value={exact} onChange={(e) => setExact(e.target.value)} />
         <button onClick={findExact}>Find</button>
-        <button className="primary" onClick={() => setForm(emptyForm)}>+ Add</button>
-        <button onClick={undo}>↩ Undo</button>
+        {isAdmin && <button className="primary" onClick={() => setForm(emptyForm)}>+ Add</button>}
+        {isAdmin && <button onClick={undo}>↩ Undo</button>}
       </div>
 
       <div className="lockers">
@@ -195,8 +210,12 @@ function Equipment({ notify }) {
                 <div className="lmeta">{it.available} / {it.quantity} available</div>
                 <div className="lactions">
                   <button onClick={() => setBorrowing(it)}>{it.available > 0 ? 'Borrow' : 'Waitlist'}</button>
-                  <button onClick={() => setForm({ id: it.id, name: it.name, category: it.category, quantity: it.quantity, condition: it.condition })}>Edit</button>
-                  <button className="danger" onClick={() => remove(it)}>Del</button>
+                  {isAdmin && (
+                    <>
+                    <button onClick={() => setForm({ id: it.id, name: it.name, category: it.category, quantity: it.quantity, condition: it.condition })}>Edit</button>
+                    <button className="danger" onClick={() => remove(it)}>Del</button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -322,5 +341,5 @@ function Modal({ title, onClose, children }) {
       </div>
     </div>
   );
-                                }
+        }
     
