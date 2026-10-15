@@ -17,6 +17,7 @@ body {
 }
 .app { max-width: 1000px; margin: 0 auto; padding: 14px; }
 
+
 header {
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;
   background: var(--card); border: 1px solid var(--border); border-radius: 18px;
@@ -52,9 +53,10 @@ button:disabled { opacity: .6; cursor: wait; }
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
   padding: 12px 6px; text-align: center; box-shadow: var(--shadow);
 }
-
 .stat b { display: block; font-size: 1.7rem; line-height: 1.1; }
 .stat span { font-size: .7rem; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+
+
 .toolbar {
   display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; padding: 10px;
   background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
@@ -166,7 +168,21 @@ tbody tr:hover { background: var(--card2); }
   h1 { font-size: 1rem; }
   .emoji { width: 60px; height: 60px; font-size: 30px; }
 }
+
+
 .locker.hit {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(139,92,246,.5), 0 0 28px rgba(139,92,246,.45);
 }
+
+
+.badge {
+  font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; padding: 2px 8px;
+  border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+}
+.badge.admin { color: #c4b5fd; border-color: #5b4a99; background: rgba(139,92,246,.15); }
+.authtabs { display: flex; gap: 4px; background: var(--card2); padding: 4px; border-radius: 12px; margin: 14px 0 2px; }
+.authtabs button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 8px; border-radius: 9px; }
+.authtabs button.active { background: #2a3350; color: var(--text); font-weight: 600; }
+.hint { font-size: .75rem; color: var(--muted); text-align: left; margin: 10px 0 0; line-height: 1.4; }
+  
