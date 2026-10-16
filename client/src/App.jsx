@@ -14,7 +14,7 @@ const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
 export default function App() {
   const [tab, setTab] = useState('equipment');
-  const [msg, setMsg] = useState(null); // {type, text}
+  const [msg, setMsg] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(auth.token() ? { email: auth.email(), role: auth.role() || 'user' } : null);
   const notify = (text, type = 'ok') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000); };
@@ -52,9 +52,9 @@ export default function App() {
   );
 }
 
-/* ---------------- LOGIN / CREATE ACCOUNT ---------------- */
+
 function Login({ onLogin }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -100,13 +100,13 @@ function Login({ onLogin }) {
   );
 }
 
-/* ---------------- EQUIPMENT (locker room) ---------------- */
+
 function Equipment({ notify, isAdmin }) {
   const [items, setItems] = useState([]);
   const [f, setF] = useState({ search: '', category: '', sort: 'name', order: 'asc', algo: 'merge' });
   const [suggestions, setSuggestions] = useState([]);
-  const [form, setForm] = useState(null);       // null | {id?, ...fields}
-  const [borrowing, setBorrowing] = useState(null); // equipment item
+  const [form, setForm] = useState(null);       
+  const [borrowing, setBorrowing] = useState(null); 
   const [bForm, setBForm] = useState(emptyBorrow);
   const [exact, setExact] = useState('');
   const [hit, setHit] = useState(null);
@@ -264,7 +264,7 @@ function Equipment({ notify, isAdmin }) {
   );
 }
 
-/* ---------------- LOANS ---------------- */
+
 function Loans({ notify, isAdmin }) {
   const [loans, setLoans] = useState([]);
   const [f, setF] = useState({ status: 'active', search: '', sort: 'due_date', order: 'asc' });
@@ -318,7 +318,7 @@ function Loans({ notify, isAdmin }) {
   );
 }
 
-/* ---------------- WAITLIST ---------------- */
+
 function Waitlist({ notify, isAdmin }) {
   const [rows, setRows] = useState([]);
   const load = useCallback(async () => {
