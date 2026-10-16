@@ -14,7 +14,8 @@ const emptyBorrow = { borrower_name: '', student_id: '', days: 3 };
 
 export default function App() {
   const [tab, setTab] = useState('equipment');
-  const [msg, setMsg] = useState(null); // {type, text}
+  const [msg, setMsg] = useState(null); 
+  const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(auth.token() ? { email: auth.email(), role: auth.role() || 'user' } : null);
   const notify = (text, type = 'ok') => { setMsg({ text, type }); setTimeout(() => setMsg(null), 4000); };
 
@@ -28,12 +29,13 @@ export default function App() {
   if (!user) return <Login onLogin={setUser} />;
 
   return (
-    <div className="app">
+    <div className={'app' + (menuOpen ? ' menu-open' : '')}>
+      <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Hide menu' : 'Show menu'}>{menuOpen ? '‹' : '›'}</button>
       <header>
         <h1>🏀 Sport Lending Equipment</h1>
         <nav>
           {['equipment', 'loans', 'waitlist'].map((t) => (
-            <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>
+            <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setMenuOpen(false); }}>{t}</button>
           ))}
         </nav>
         <div className="who">
@@ -44,14 +46,15 @@ export default function App() {
       </header>
       {msg && <div className={'toast ' + msg.type}>{msg.text}</div>}
       {tab === 'equipment' && <Equipment notify={notify} isAdmin={user.role === 'admin'} />}
-      {tab === 'loans' && <Loans notify={notify} />}
-      {tab === 'waitlist' && <Waitlist notify={notify} />}
+      {tab === 'loans' && <Loans notify={notify} isAdmin={user.role === 'admin'} />}
+      {tab === 'waitlist' && <Waitlist notify={notify} isAdmin={user.role === 'admin'} />}
     </div>
   );
 }
 
+
 function Login({ onLogin }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -102,8 +105,8 @@ function Equipment({ notify, isAdmin }) {
   const [items, setItems] = useState([]);
   const [f, setF] = useState({ search: '', category: '', sort: 'name', order: 'asc', algo: 'merge' });
   const [suggestions, setSuggestions] = useState([]);
-  const [form, setForm] = useState(null);       // null | {id?, ...fields}
-  const [borrowing, setBorrowing] = useState(null); // equipment item
+  const [form, setForm] = useState(null);       
+  const [borrowing, setBorrowing] = useState(null); 
   const [bForm, setBForm] = useState(emptyBorrow);
   const [exact, setExact] = useState('');
   const [hit, setHit] = useState(null);
@@ -171,16 +174,22 @@ function Equipment({ notify, isAdmin }) {
       <div className="toolbar">
         <input list="sugg" placeholder="Search equipment…" value={f.search} onChange={(e) => onSearch(e.target.value)} />
         <datalist id="sugg">{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
-        <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-        </select>
-        <select value={f.sort} onChange={(e) => setF({ ...f, sort: e.target.value })}>
-          {['name', 'category', 'quantity', 'available', 'condition'].map((s) => <option key={s}>{s}</option>)}
-        </select>
-        <select value={f.order} onChange={(e) => setF({ ...f, order: e.target.value })}>
-          <option value="asc">A → Z</option><option value="desc">Z → A</option>
-        </select>
+        <label className="fld"><span>Category</span>
+          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+            <option value="">All categories</option>
+            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="fld"><span>Sort by</span>
+          <select value={f.sort} onChange={(e) => setF({ ...f, sort: e.target.value })}>
+            {['name', 'category', 'quantity', 'available', 'condition'].map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </label>
+        <label className="fld"><span>Order</span>
+          <select value={f.order} onChange={(e) => setF({ ...f, order: e.target.value })}>
+            <option value="asc">Ascending</option><option value="desc">Descending</option>
+          </select>
+        </label>
       </div>
       <div className="toolbar">
         <input placeholder="Exact name" value={exact} onChange={(e) => setExact(e.target.value)} />
@@ -188,6 +197,11 @@ function Equipment({ notify, isAdmin }) {
         {isAdmin && <button className="primary" onClick={() => setForm(emptyForm)}>+ Add</button>}
         {isAdmin && <button onClick={undo}>↩ Undo</button>}
       </div>
+
+      <p className="meta">
+        Showing {items.length} item{items.length === 1 ? '' : 's'}
+        {f.category ? ' in ' + f.category : ''}, sorted by {f.sort} ({f.order === 'asc' ? 'ascending' : 'descending'})
+      </p>
 
       <div className="lockers">
         {items.map((it, i) => {
@@ -248,10 +262,8 @@ function Equipment({ notify, isAdmin }) {
       )}
     </section>
   );
-}
 
-
-function Loans({ notify }) {
+function Loans({ notify, isAdmin }) {
   const [loans, setLoans] = useState([]);
   const [f, setF] = useState({ status: 'active', search: '', sort: 'due_date', order: 'asc' });
   const load = useCallback(async () => {
@@ -270,6 +282,7 @@ function Loans({ notify }) {
 
   return (
     <section>
+      {!isAdmin && <p className="meta">You can see and return only your own loans.</p>}
       <div className="toolbar">
         <input placeholder="Search borrower / ID / item" value={f.search} onChange={(e) => setF({ ...f, search: e.target.value })} />
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
@@ -285,16 +298,17 @@ function Loans({ notify }) {
       </div>
       <div className="tablewrap">
         <table>
-          <thead><tr><th>Equipment</th><th>Borrower</th><th>ID</th><th>Due</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Equipment</th><th>Borrower</th><th>ID</th><th>Due</th><th>Status</th>{isAdmin && <th>Account</th>}<th></th></tr></thead>
           <tbody>
             {loans.map((l) => (
               <tr key={l.id}>
                 <td>{l.equipment_name}</td><td>{l.borrower_name}</td><td>{l.student_id}</td><td>{fmt(l.due_date)}</td>
                 <td className={l.overdue ? 'bad' : ''}>{l.returned_at ? 'Returned' : l.overdue ? 'OVERDUE' : 'Borrowed'}</td>
+                {isAdmin && <td>{l.user_email || '-'}</td>}
                 <td>{!l.returned_at && <button onClick={() => giveBack(l.id)}>Return</button>}</td>
               </tr>
             ))}
-            {loans.length === 0 && <tr><td colSpan="6" className="empty">No loans</td></tr>}
+            {loans.length === 0 && <tr><td colSpan={isAdmin ? 7 : 6} className="empty">No loans</td></tr>}
           </tbody>
         </table>
       </div>
@@ -302,8 +316,7 @@ function Loans({ notify }) {
   );
 }
 
-
-function Waitlist({ notify }) {
+function Waitlist({ notify, isAdmin }) {
   const [rows, setRows] = useState([]);
   const load = useCallback(async () => {
     try { setRows(await api.listWaitlist()); } catch (e) { notify(e.message, 'err'); }
@@ -315,15 +328,17 @@ function Waitlist({ notify }) {
   return (
     <section>
       <p className="meta">Queue (FIFO): the first person in line gets the item when it is returned.</p>
+      {!isAdmin && <p className="meta">You can see and cancel only your own waitlist entries.</p>}
       <div className="tablewrap">
         <table>
-          <thead><tr><th>Equipment</th><th>#</th><th>Name</th><th>ID</th><th></th></tr></thead>
+          <thead><tr><th>Equipment</th><th>#</th><th>Name</th><th>ID</th>{isAdmin && <th>Account</th>}<th></th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}><td>{r.equipment_name}</td><td>{r.position}</td><td>{r.borrower_name}</td><td>{r.student_id}</td>
+                {isAdmin && <td>{r.user_email || '-'}</td>}
                 <td><button className="danger" onClick={() => cancel(r.id)}>Cancel</button></td></tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan="5" className="empty">Nobody is waiting</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={isAdmin ? 6 : 5} className="empty">Nobody is waiting</td></tr>}
           </tbody>
         </table>
       </div>
@@ -341,5 +356,4 @@ function Modal({ title, onClose, children }) {
       </div>
     </div>
   );
-        }
-    
+}
