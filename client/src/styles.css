@@ -187,7 +187,8 @@ tbody tr:hover { background: var(--card2); }
 
 
 @media (min-width: 720px) {
-  .app { max-width: none; margin: 0; padding: 14px 18px 18px 256px; }
+  .app { max-width: none; margin: 0; padding: 58px 18px 18px 18px; transition: padding .25s ease; }
+  .app.menu-open { padding: 14px 18px 18px 256px; }
   .app > section { max-width: 1100px; }
   header {
     position: fixed; top: 14px; left: 14px; bottom: 14px; width: 226px; z-index: 5;
@@ -205,5 +206,24 @@ tbody tr:hover { background: var(--card2); }
   .who span:first-child { max-width: none; white-space: normal; word-break: break-all; color: var(--text); font-size: .8rem; }
   .who .badge { align-self: flex-start; }
   .who button { width: 100%; padding: 9px; }
-  .toast { left: 256px; }
+  .app.menu-open .toast { left: 256px; }
 }
+
+
+.toolbar { align-items: flex-end; }
+.fld { display: flex; flex-direction: column; gap: 3px; font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.fld select { text-transform: none; letter-spacing: normal; font-size: .95rem; color: var(--text); }
+
+.menu-toggle { display: none; }
+@media (min-width: 720px) {
+  header { transform: translateX(calc(-100% - 24px)); transition: transform .25s ease; }
+  .app.menu-open header { transform: none; }
+  .menu-toggle {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; top: 14px; left: 14px; z-index: 7; width: 38px; height: 38px; padding: 0;
+    border-radius: 50%; font-size: 1.3rem; line-height: 1; background: var(--card);
+    border: 1px solid var(--border); box-shadow: var(--shadow); transition: left .25s ease;
+  }
+  .app.menu-open .menu-toggle { left: 232px; top: 22px; }
+             }
+        
