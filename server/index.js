@@ -69,7 +69,7 @@ const equipmentTable = async () => {
 };
 
 
-const TOKEN_SECRET = SUPABASE_SERVICE_KEY; // already a server-only secret, so no new env var is needed
+const TOKEN_SECRET = SUPABASE_SERVICE_KEY; 
 const TOKEN_HOURS = 8;
 const signToken = (email, role) => {
   const payload = Buffer.from(JSON.stringify({ email, role, exp: Date.now() + TOKEN_HOURS * 3600 * 1000 })).toString('base64url');
@@ -114,7 +114,7 @@ app.post('/api/login', wrap(async (req, res) => {
   if (error) throw new HttpError(500, error.message);
   if (!role) throw new HttpError(401, 'Wrong email or password');
   attempts.delete(req.ip);
-  res.json({ token: signToken(email, role), email, role });
+  res.json({ token: signToken(email.toLowerCase(), role), email: email.toLowerCase(), role });
 }));
 
 
@@ -146,6 +146,10 @@ const adminOnly = (req, res, next) =>
   req.user.role === 'admin' ? next() : res.status(403).json({ error: 'Only an admin can do this' });
 
 
+const me = (req) => String(req.user.email).toLowerCase();
+const owns = (req, row) => req.user.role === 'admin' || String(row.user_email ?? '').toLowerCase() === me(req);
+
+
 app.get('/api/equipment', wrap(async (req, res) => {
   const { search = '', category = '', sort = 'name', order = 'asc', algo = 'merge' } = req.query;
   if (!SORT_FIELDS.includes(sort)) throw new HttpError(400, 'Invalid sort field');
@@ -166,7 +170,8 @@ app.get('/api/suggest', wrap(async (req, res) => {
   const trie = new Trie();
   (await all('equipment')).forEach((e) => trie.insert(e.name));
   res.json(trie.startsWith(String(req.query.q ?? '')));
-}))
+}));
+
 
 app.get('/api/equipment/lookup', wrap(async (req, res) => {
   const name = String(req.query.name ?? '').trim().toLowerCase();
@@ -252,14 +257,14 @@ app.post('/api/borrow', wrap(async (req, res) => {
     const due = new Date(Date.now() + person.days * 86400000).toISOString();
     ok(await supabase.from('equipment').update({ available: item.available - 1 }).eq('id', item.id));
     const [loan] = ok(await supabase.from('loans').insert({
-      equipment_id, borrower_name: person.borrower_name, student_id: person.student_id, due_date: due,
+      equipment_id, borrower_name: person.borrower_name, student_id: person.student_id, due_date: due, user_email: me(req),
     }).select());
     return res.status(201).json({ status: 'borrowed', loan });
   }
   
   const queue = new Queue();
   waiting.forEach((w) => queue.enqueue(w));
-  ok(await supabase.from('waitlist').insert({ equipment_id, ...person }));
+  ok(await supabase.from('waitlist').insert({ equipment_id, ...person, user_email: me(req) }));
   res.status(202).json({ status: 'waitlisted', position: queue.length + 1 });
 }));
 
@@ -267,9 +272,10 @@ app.post('/api/return/:loanId', wrap(async (req, res) => {
   const [loan] = ok(await supabase.from('loans').select('*').eq('id', req.params.loanId));
   if (!loan) throw new HttpError(404, 'Loan not found');
   if (loan.returned_at) throw new HttpError(409, 'Already returned');
+  if (!owns(req, loan)) throw new HttpError(403, 'You can only return your own loans');
   ok(await supabase.from('loans').update({ returned_at: new Date().toISOString() }).eq('id', loan.id));
 
-  
+
   const queue = new Queue();
   ok(await supabase.from('waitlist').select('*').eq('equipment_id', loan.equipment_id).order('created_at'))
     .forEach((w) => queue.enqueue(w));
@@ -278,6 +284,7 @@ app.post('/api/return/:loanId', wrap(async (req, res) => {
     const due = new Date(Date.now() + next.days * 86400000).toISOString();
     ok(await supabase.from('loans').insert({
       equipment_id: loan.equipment_id, borrower_name: next.borrower_name, student_id: next.student_id, due_date: due,
+      user_email: next.user_email ?? null,
     }));
     ok(await supabase.from('waitlist').delete().eq('id', next.id));
     return res.json({ returned: true, assignedTo: next.borrower_name });
@@ -294,10 +301,11 @@ app.get('/api/loans', wrap(async (req, res) => {
   const now = Date.now();
   let loans = (await all('loans', 'borrowed_at')).map((l) => ({
     ...l,
-    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', // O(1) hash lookup
+    equipment_name: table.get(l.equipment_id)?.name ?? 'Unknown', 
     overdue: !l.returned_at && new Date(l.due_date).getTime() < now,
   }));
   if (status === 'active') loans = loans.filter((l) => !l.returned_at);
+  if (req.user.role !== 'admin') loans = loans.filter((l) => owns(req, l)); 
   loans = linearSearch(loans, String(search), ['borrower_name', 'student_id', 'equipment_name']);
   loans = mergeSort(loans, makeComparator(sort, order === 'desc' ? 'desc' : 'asc'));
   res.json(loans);
@@ -313,14 +321,17 @@ app.get('/api/waitlist', wrap(async (req, res) => {
   });
   const out = [];
   queues.values().forEach((q) => q.toArray().forEach((w, i) => out.push({ ...w, position: i + 1, equipment_name: table.get(w.equipment_id)?.name ?? 'Unknown' })));
-  res.json(out);
+  res.json(req.user.role === 'admin' ? out : out.filter((w) => owns(req, w))); 
 }));
 
 app.delete('/api/waitlist/:id', wrap(async (req, res) => {
-  ok(await supabase.from('waitlist').delete().eq('id', req.params.id));
+  const [row] = ok(await supabase.from('waitlist').select('*').eq('id', req.params.id));
+  if (!row) throw new HttpError(404, 'Waitlist entry not found');
+  if (!owns(req, row)) throw new HttpError(403, 'You can only cancel your own waitlist entries');
+  ok(await supabase.from('waitlist').delete().eq('id', row.id));
   res.json({ deleted: true });
 }));
 
 app.get('/', (req, res) => res.json({ status: 'Sport Lending API running' }));
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
-    
+                                                                        
